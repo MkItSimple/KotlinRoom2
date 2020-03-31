@@ -8,13 +8,17 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
+import androidx.navigation.Navigation
 
 import com.example.kotlinroom2.R
 import com.example.kotlinroom2.db.Note
 import com.example.kotlinroom2.db.NoteDatabase
 import kotlinx.android.synthetic.main.fragment_add_note.*
+import kotlinx.coroutines.launch
 
-class AddNoteFragment : Fragment() {
+class AddNoteFragment : BaseFragment() {
+
+    private var note: Note? = null
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -26,7 +30,13 @@ class AddNoteFragment : Fragment() {
     override fun onActivityCreated(savedInstanceState: Bundle?) {
         super.onActivityCreated(savedInstanceState)
 
-        button_save.setOnClickListener {
+        arguments?.let {
+            note = AddNoteFragmentArgs.fromBundle(it).note
+            edit_text_title.setText(note?.title)
+            edit_text_note.setText(note?.note)
+        }
+
+        button_save.setOnClickListener { view ->
             val noteTitle = edit_text_title.text.toString().trim()
             val noteBody = edit_text_note.text.toString().trim()
 
@@ -42,24 +52,23 @@ class AddNoteFragment : Fragment() {
                 return@setOnClickListener
             }
 
-            val note = Note(noteTitle, noteBody)
-            saveNote(note)
-        }
-    }
+            launch {
+                context?.let {
+                    val mNote = Note(noteTitle,noteBody)
 
-    private fun saveNote(note: Note){
-        class SaveNote : AsyncTask<Void, Void, Void>(){
-            override fun doInBackground(vararg params: Void?): Void? {
-                NoteDatabase(activity!!).getNoteDao().addNote(note)
-                return null
+                    if (note == null){
+                        NoteDatabase(it).getNoteDao().addNote(mNote)
+                        it.toast("Note Saved")
+                    } else {
+                        mNote.id =  note!!.id
+                        NoteDatabase(it).getNoteDao().updateNote(mNote)
+                        it.toast("Note Updated")
+                    }
+
+                    val action = AddNoteFragmentDirections.actionSaveNote()
+                    Navigation.findNavController(view!!).navigate(action)
+                }
             }
-
-            override fun onPostExecute(result: Void?) {
-                super.onPostExecute(result)
-
-                Toast.makeText(activity, "Note Saved", Toast.LENGTH_LONG).show()
-            }
         }
-        SaveNote().execute()
     }
 }
